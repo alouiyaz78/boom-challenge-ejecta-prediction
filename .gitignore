@@ -26,3 +26,9 @@ Thumbs.db
 # Reports and figures
 reports/
 outputs/figures/
+outputs/submissions/*alpha*.csv
+outputs/submissions/*hybrid*.csv
+outputs/submissions/*v2*.csv
+outputs/submissions/*robust*.csv
+outputs/submissions/*target*.csv
+outputs/submissions/*boosting*.csv
