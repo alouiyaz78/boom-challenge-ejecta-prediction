@@ -32,3 +32,18 @@ outputs/submissions/*v2*.csv
 outputs/submissions/*robust*.csv
 outputs/submissions/*target*.csv
 outputs/submissions/*boosting*.csv
+# Notebook exports and training logs
+notebooks/*.pdf
+notebooks/catboost_info/
+
+# Extra experimental forward outputs
+outputs/submissions/*forward_final.csv
+outputs/submissions/*extratrees*.csv
+
+# Notebook exports and training logs
+notebooks/*.pdf
+notebooks/catboost_info/
+
+# Extra experimental forward outputs
+outputs/submissions/*forward_final.csv
+outputs/submissions/*extratrees*.csv
