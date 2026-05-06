@@ -11,6 +11,8 @@ The challenge has two objectives:
 
 The final solution uses a **physics-informed machine learning pipeline** with out-of-distribution validation and constrained inverse design.
 
+The goal was not only to optimize validation metrics, but also to respect the expected physical behavior of ejecta travel distances under varying gravity, energy transfer, material resistance, and atmospheric drag.
+
 ---
 
 ## Final Submission Files
@@ -40,6 +42,22 @@ submission_id, energy, angle_rad, coupling, strength, porosity, gravity, atmosph
 
 ---
 
+## Final Decision
+
+The final forward submission uses:
+
+```text
+Hybrid MLP-distance model with weight 0.65
+```
+
+This choice was made after Leave-One-Gravity-Out validation showed that the hybrid model was the strongest candidate for distance targets under gravity-based out-of-distribution validation.
+
+A final Ridge meta-blend was also tested after the hybrid model. It produced only a marginal mean improvement and degraded P95 tail robustness, so the hybrid model was retained as the final forward submission.
+
+The final inverse-design file was kept because all 20 proposed designs remained feasible under the final hybrid forward model and under additional robustness checks.
+
+---
+
 ## Method Summary
 
 The solution combines:
@@ -52,18 +70,20 @@ The solution combines:
 
 ---
 
-## Physics-Informed Features
+## Physics-Informed Approach
 
-The raw impact parameters were transformed into physically meaningful features, including:
+The raw impact parameters were transformed into physically meaningful features.
 
-- effective transferred energy;
-- angle decomposition using sine and cosine;
-- material resistance and fragmentation proxies;
-- gravity-scaled distance features;
-- atmosphere and drag proxies;
-- regime indicators based on porosity, strength, angle, and atmosphere.
+Main feature groups include:
 
-These features were designed to improve generalization, especially for out-of-distribution gravity regimes.
+- **energy transfer features**: effective energy and log effective energy;
+- **angle decomposition features**: sine, cosine, horizontal energy, and vertical energy;
+- **material features**: strength, porosity, material resistance, and fragmentation proxies;
+- **gravity-scaled distance features**: energy per gravity and range proxies;
+- **atmosphere and drag features**: drag proxy and atmosphere-shape-energy interactions;
+- **regime indicators**: porosity, strength, angle, and atmosphere regimes.
+
+These features were designed to help the model learn relationships that are physically meaningful, especially for distance-related outputs affected by gravity.
 
 ---
 
@@ -87,6 +107,8 @@ the final solution uses:
 ExtraTreesRegressor + advanced fragmentation features
 ```
 
+These targets were more stable under tree-based models and benefited from material-resistance and fragmentation features.
+
 ### Distance Targets
 
 For the distance targets:
@@ -101,17 +123,14 @@ several strategies were tested:
 
 - ExtraTrees baseline;
 - MLP distance model;
-- controlled blends;
+- controlled distance blends;
 - physics-informed residual model;
+- Ridge meta-blend;
 - OOD validation with Leave-One-Gravity-Out CV.
 
-The final forward submission uses:
+The final forward submission uses the hybrid MLP-distance model with weight 0.65.
 
-```text
-Hybrid MLP-distance model with weight 0.65
-```
-
-This choice was selected because Leave-One-Gravity-Out validation showed that the hybrid model performed best under gravity-based OOD validation. The hybrid model reduced the conservative under-extrapolation observed in tree-based models for distance targets.
+The main OOD failure mode was conservative under-extrapolation of travel distances when gravity regimes were not seen during training. The hybrid distance model helped reduce this under-extrapolation.
 
 ---
 
@@ -129,18 +148,38 @@ The test set contains unseen gravity levels:
 1.02, 1.38, 4.91, 7.03, 10.47
 ```
 
-Because of this, random KFold validation was not enough. A **Leave-One-Gravity-Out** validation was used to better simulate the OOD setting.
+Because of this, random KFold validation was not sufficient. Random KFold mainly tests interpolation between examples that share the same gravity regimes. A **Leave-One-Gravity-Out** validation was used to better simulate the OOD setting.
 
-The hybrid MLP-distance model achieved the best global Leave-One-Gravity-Out score among the tested strategies:
+The global Leave-One-Gravity-Out ranking was:
 
 ```text
-hybrid_w_0.65
-physics_residual
-alpha25
-base ExtraTrees
+1. hybrid_w_0.65
+2. physics_residual
+3. alpha25
+4. base ExtraTrees
 ```
 
 This supported the final choice of the hybrid forward submission.
+
+---
+
+## Physics Residual and Meta-Blend Experiments
+
+A physics-informed residual model was tested with the following idea:
+
+```text
+prediction = physics_baseline + ML_residual
+```
+
+This approach was useful as a scientific benchmark, but it was not selected because it produced more extreme test predictions and was less stable than the hybrid model.
+
+A final Ridge meta-blend was also tested on top of the hybrid model:
+
+```text
+final_prediction = (1 - alpha) * hybrid_w_0.65 + alpha * meta_prediction
+```
+
+The best meta-blend improvement was marginal and degraded P95 tail robustness. Therefore, the final decision was to keep the hybrid_w_0.65 submission.
 
 ---
 
@@ -181,13 +220,19 @@ Therefore, the final `design_submission.csv` was kept after selecting the hybrid
 ├── README.md
 ├── requirements.txt
 ├── notebooks/
-│   ├── 01_eda_forward_prediction_clean.ipynb
-│   ├── 02_feature_engineering_analysis_clean.ipynb
-│   ├── 03_modeling_extratrees_pipeline_clean.ipynb
-│   ├── 09_final_forward_prediction_pipeline_clean.ipynb
+│   ├── 01_eda_forward_prediction.ipynb
+│   ├── 02_feature_engineering_analysis.ipynb
+│   ├── 03_modeling_extratrees_pipeline.ipynb
+│   ├── 04_forward_v2_advanced_features_test.ipynb
+│   ├── 05_forward_physics_ood_features_test.ipynb
+│   ├── 06_forward_model_diagnostics_and_learning_curves_clean.ipynb
+│   ├── 07_forward_hybrid_mlp_distance_test.ipynb
+│   ├── 08_ood_controlled_blend_test.ipynb
+│   ├── 09_comparison_v1_vs_v2_methodology.ipynb
 │   ├── 10_leave_one_gravity_out_uncertainty.ipynb
-│   ├── 11_final_forward_decision_and_submission.ipynb
-│   └── 12_final_inverse_design_validation.ipynb
+│   ├── 11_final_logo_meta_blend_test.ipynb
+│   ├── 12_final_forward_decision_and_submission.ipynb
+│   └── 13_final_inverse_design_validation.ipynb
 ├── outputs/
 │   └── submissions/
 │       ├── prediction_submission.csv
@@ -201,13 +246,19 @@ Therefore, the final `design_submission.csv` was kept after selecting the hybrid
 
 | Notebook | Purpose |
 |---|---|
-| `01_eda_forward_prediction_clean.ipynb` | Exploratory analysis of inputs, targets, regimes, skewness, outliers, and correlations |
-| `02_feature_engineering_analysis_clean.ipynb` | Physics-informed feature engineering and feature-target analysis |
-| `03_modeling_extratrees_pipeline_clean.ipynb` | First clean ExtraTrees baseline using sklearn pipelines |
-| `09_final_forward_prediction_pipeline_clean.ipynb` | Builds the stable forward baseline |
+| `01_eda_forward_prediction.ipynb` | Exploratory analysis of inputs, targets, regimes, skewness, outliers, and correlations |
+| `02_feature_engineering_analysis.ipynb` | Physics-informed feature engineering and feature-target analysis |
+| `03_modeling_extratrees_pipeline.ipynb` | First clean ExtraTrees baseline using sklearn pipelines |
+| `04_forward_v2_advanced_features_test.ipynb` | Tests additional advanced features |
+| `05_forward_physics_ood_features_test.ipynb` | Tests physics/OOD-inspired feature extensions |
+| `06_forward_model_diagnostics_and_learning_curves_clean.ipynb` | Checks overfitting, learning curves, and target-level diagnostics |
+| `07_forward_hybrid_mlp_distance_test.ipynb` | Tests MLP hybrid modeling for distance targets |
+| `08_ood_controlled_blend_test.ipynb` | Tests controlled blends between baseline and hybrid candidates |
+| `09_comparison_v1_vs_v2_methodology.ipynb` | Compares baseline, new features, log-transform, and residual strategies |
 | `10_leave_one_gravity_out_uncertainty.ipynb` | OOD validation using Leave-One-Gravity-Out CV and bootstrap uncertainty |
-| `11_final_forward_decision_and_submission.ipynb` | Selects the final forward file and validates submission format |
-| `12_final_inverse_design_validation.ipynb` | Validates the final inverse-design file under the selected forward strategy |
+| `11_final_logo_meta_blend_test.ipynb` | Final optional meta-blend test; hybrid_w_0.65 was retained |
+| `12_final_forward_decision_and_submission.ipynb` | Selects the final forward file and validates submission format |
+| `13_final_inverse_design_validation.ipynb` | Validates the final inverse-design file under the selected forward strategy |
 
 ---
 
@@ -272,6 +323,8 @@ The final solution was selected after comparing several strategies using:
 - Leave-One-Gravity-Out CV;
 - bootstrap confidence intervals;
 - inverse-design feasibility checks.
+
+The final forward file was selected only after confirming that the hybrid distance model was stronger under gravity-based OOD validation.
 
 ---
 
